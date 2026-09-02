@@ -2,13 +2,13 @@
 
 [![License](https://img.shields.io/badge/License-Sovereign%20Source%20v1.0%20%7C%20BSL--1.1%20%7C%20AGPL--3.0-critical.svg)](#license)
 [![Parser](https://img.shields.io/badge/Parser-GGUF%20v2%2Fv3%20zero--sorry-blue.svg)](#verification)
-[![Python](https://img.shields.io/badge/Python-3.11%2B%20stdlib%20only%20—%20no%20torch%20no%20TF-3776AB.svg)](#quick-start)
+[![Python](https://img.shields.io/badge/Python-3.11%2B%20stdlib%20only%20â€”%20no%20torch%20no%20TF-3776AB.svg)](#quick-start)
 [![Security](https://img.shields.io/badge/Security-zero--trust%20mmap%20%2B%20bounds--checked-green.svg)](#security)
-[![Tests](https://img.shields.io/badge/Tests-8%2F8%20PASS%20—%20mock%20gemini.gguf-brightgreen.svg)](#tests)
+[![Tests](https://img.shields.io/badge/Tests-8%2F8%20PASS%20â€”%20mock%20gemini.gguf-brightgreen.svg)](#tests)
 
 > **No torch. No TF. No network. Just `mmap` and `struct`.**
 
-Standalone, zero-dependency GGUF binary parser and neural Graph IR for Gemini-class sovereign models. Parses 15.48GB, 291 tensors, 36 blocks — without loading weights.
+Standalone, zero-dependency GGUF binary parser and neural Graph IR for Gemini-class sovereign models. Parses 15.48GB, 291 tensors, 36 blocks â€” without loading weights.
 
 Cherry-picked from `sovereign-cuda-kernels` mass repo. Public, tri-licensed.
 
@@ -16,13 +16,13 @@ Cherry-picked from `sovereign-cuda-kernels` mass repo. Public, tri-licensed.
 
 ## What This Parses
 
-A GGUF file is three contiguous blocks: **Header (24B)** → **Metadata KV table** → **Tensor descriptors + aligned binary data**. This parser reconstructs the full transformer topology from that binary alone.
+A GGUF file is three contiguous blocks: **Header (24B)** â†’ **Metadata KV table** â†’ **Tensor descriptors + aligned binary data**. This parser reconstructs the full transformer topology from that binary alone.
 
 | Block | What it contains | How we parse it |
 |-------|------------------|-----------------|
 | Header | `GGUF` magic, version 2/3, 291 tensor count, KV count | `struct.unpack_from("<IQQ", mm, 4)` |
-| Metadata | `general.architecture=gemini`, `gemini.*` hyper-params, alignment | `GGUFValueType` 0–12, string/array limits |
-| Tensors | 291 descriptors: `name`, `n_dims`, `shape`, `GGML dtype`, `relative_offset` → `file_offset` | `block_size/bytes_per_block` per quant, overlap + bounds checks |
+| Metadata | `general.architecture=gemini`, `gemini.*` hyper-params, alignment | `GGUFValueType` 0â€“12, string/array limits |
+| Tensors | 291 descriptors: `name`, `n_dims`, `shape`, `GGML dtype`, `relative_offset` â†’ `file_offset` | `block_size/bytes_per_block` per quant, overlap + bounds checks |
 
 ---
 
@@ -34,8 +34,8 @@ flowchart LR
     B --> C[GGUFParser<br/>_parse_header<br/>_parse_metadata<br/>_calculate_tensor_offsets]
     C --> D{Security Gates}
     D -->|MAX_STRING 1M<br/>MAX_TENSOR 500k<br/>MAX_ARRAY 10M| E[ModelConfig<br/>gemini.embedding_length<br/>gemini.block_count<br/>GQA 32/8]
-    E --> F[ModelGraph<br/>36× TransformerBlockNode<br/>GQA + SwiGLU + RMSNorm]
-    F --> G[Graph IR<br/>TOPOLOGY: TOKEN_IDS → EMBEDDING → 36× BLOCK → FINAL_NORM → LOGITS]
+    E --> F[ModelGraph<br/>36Ã-- TransformerBlockNode<br/>GQA + SwiGLU + RMSNorm]
+    F --> G[Graph IR<br/>TOPOLOGY: TOKEN_IDS â†’ EMBEDDING â†’ 36Ã-- BLOCK â†’ FINAL_NORM â†’ LOGITS]
     G --> H[validate / evoke<br/>291 tensors bound<br/>memoryview slices]
 
     style B fill:#0ea5e9,stroke:#0284c7,color:#fff
@@ -47,10 +47,10 @@ flowchart LR
 ```mermaid
 flowchart TD
     subgraph Block["Transformer Block N (0..35)"]
-        A[attn_norm.weight<br/>RMSNorm 4096] --> B[GQA<br/>Q 4096→4096 | K/V 4096→1024<br/>RoPE + QK-Norm + repeat_interleave 4×]
-        B --> C[attn_output.weight<br/>4096→4096 + residual]
+        A[attn_norm.weight<br/>RMSNorm 4096] --> B[GQA<br/>Q 4096â†’4096 | K/V 4096â†’1024<br/>RoPE + QK-Norm + repeat_interleave 4Ã--]
+        B --> C[attn_output.weight<br/>4096â†’4096 + residual]
         C --> D[ffn_norm.weight<br/>RMSNorm 4096]
-        D --> E[SwiGLU<br/>gate 4096→14336<br/>up 4096→14336<br/>SiLU(gate) ⊙ up → down 14336→4096]
+        D --> E[SwiGLU<br/>gate 4096â†’14336<br/>up 4096â†’14336<br/>SiLU(gate) âŠ™ up â†’ down 14336â†’4096]
         E --> F[Residual]
     end
     F --> G[Next Block]
@@ -60,27 +60,27 @@ flowchart TD
 
 ## Architecture It Reconstructs
 
-**Gemini-class sovereign:** 36 layers, 4096 hidden, GQA 32 Q / 8 KV (factor 4, head_dim 128), SwiGLU 14336, vocab 256000, context 512, RoPE `θ=10000`, RMSNorm `ε=1e-5`, 291 tensors (Q4_K/Q6_K + F32 norms).
+**Gemini-class sovereign:** 36 layers, 4096 hidden, GQA 32 Q / 8 KV (factor 4, head_dim 128), SwiGLU 14336, vocab 256000, context 512, RoPE `Î¸=10000`, RMSNorm `Îµ=1e-5`, 291 tensors (Q4_K/Q6_K + F32 norms).
 
 | Tensor class | Example | Dtype | Per-layer bytes |
 |--------------|---------|-------|-----------------|
-| `attn_q` | `blk.0.attn_q.weight` | Q4_K 256→144 | 9,437,184 |
+| `attn_q` | `blk.0.attn_q.weight` | Q4_K 256â†’144 | 9,437,184 |
 | `attn_k` | `blk.0.attn_k.weight` | Q4_K | 2,359,296 |
-| `attn_v` | `blk.0.attn_v.weight` | Q6_K 256→210 | 3,440,640 |
+| `attn_v` | `blk.0.attn_v.weight` | Q6_K 256â†’210 | 3,440,640 |
 | `attn_output` | `blk.0.attn_output.weight` | Q4_K | 9,437,184 |
 | `ffn_gate/up` | `blk.0.ffn_gate.weight` | Q4_K | 33,030,144 each |
 | `ffn_down` | `blk.0.ffn_down.weight` | Q6_K | 48,168,960 |
 | `attn_norm/ffn_norm` | `blk.0.attn_norm.weight` | F32 | 16,384 each |
 
-Weight tying detected: `T000 token_embd.weight ↔ T290 output.weight` (same `file_offset` + `byte_size`).
+Weight tying detected: `T000 token_embd.weight â†” T290 output.weight` (same `file_offset` + `byte_size`).
 
-See `src/architecture/graph.py:1` for `ModelGraph` → `TransformerBlockNode` IR.
+See `src/architecture/graph.py:1` for `ModelGraph` â†’ `TransformerBlockNode` IR.
 
 ---
 
 ## Param Count
 
-`src/validation/parameters.py:1` counts from tensor descriptors alone — no weights loaded:
+`src/validation/parameters.py:1` counts from tensor descriptors alone â€” no weights loaded:
 
 ```python
 from src.validation.parameters import ParameterCounter
@@ -144,11 +144,11 @@ Zero-trust: every GGUF is untrusted binary.
 | `MAX_METADATA_COUNT` | 1,000,000 | `src/gguf/reader.py:1` |
 | `MAX_ARRAY_ELEMENTS` | 10,000,000 | `src/gguf/metadata.py:1` |
 | `MAX_DIMENSION_COUNT` | 8 | `src/gguf/tensor.py:1` |
-| Overlap check | sorted by `file_offset`, `curr.offset+size ≤ next.offset` | `src/validation/offsets.py:1` |
-| Bounds check | `abs_offset+byte_size ≤ file_size` | `src/validation/offsets.py:1` |
+| Overlap check | sorted by `file_offset`, `curr.offset+size â‰¤ next.offset` | `src/validation/offsets.py:1` |
+| Bounds check | `abs_offset+byte_size â‰¤ file_size` | `src/validation/offsets.py:1` |
 | No code exec | `decode("utf-8")` only, no `eval`/`exec`/`unpickle` | `src/gguf/mmap.py:1` |
 
-All reads are `memoryview` slices — no buffer copy.
+All reads are `memoryview` slices â€” no buffer copy.
 
 ---
 
@@ -160,7 +160,7 @@ python -m src.tests.test_validation  # hidden_dim divisibility, shape
 python -m src.tests.test_security    # overlap detect, bounds
 ```
 
-Mock fixture: GGUF v3, `general.architecture=gemini`, `embedding_length=64`, `block_count=1`, `token_embd.weight` 64×128 F32 at offset 0, `blk.0.attn_q.weight` 64×64 F32 at 32768, 32-byte aligned.
+Mock fixture: GGUF v3, `general.architecture=gemini`, `embedding_length=64`, `block_count=1`, `token_embd.weight` 64Ã--128 F32 at offset 0, `blk.0.attn_q.weight` 64Ã--64 F32 at 32768, 32-byte aligned.
 
 ---
 
@@ -181,11 +181,11 @@ docs/{GGUF_FORMAT,ARCHITECTURE,GRAPH_IR,SECURITY,TEST_REPORT}.md
 
 ## License
 
-Tri-licensed: **Sovereign Source License v1.0** (Bel Esprit d'Accord Trust · 2026-06-01) | **BSL-1.1** (Change Date 2030-06-01 → Apache 2.0) | **AGPL-3.0**. See `LICENSE`.
+Tri-licensed: **Sovereign Source License v1.0** (Bel Esprit d'Accord Trust Â· 2026-06-01) | **BSL-1.1** (Change Date 2030-06-01 â†’ Apache 2.0) | **AGPL-3.0**. See `LICENSE`.
 
 Headers `SNAPKITTYWEST-PROPRIETARY-2026-001` preserved. Prior art: SHA3-512 + WORM.
 
-Contact: **Ahmad Ali Parr** <ahmedparr93@gmail.com> · Bel Esprit D'Accord Trust
+Contact: **Ahmad Ali Parr** <ahmedparr93@gmail.com> Â· Bel Esprit D'Accord Trust
 
 ---
 
